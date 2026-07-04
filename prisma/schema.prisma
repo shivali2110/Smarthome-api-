@@ -1,0 +1,295 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model activity_logs {
+  log_id      Int       @id @default(autoincrement())
+  user_id     Int?
+  switch_id   Int?
+  action      String    @db.VarChar(10)
+  action_time DateTime  @default(now()) @db.Timestamp(0)
+  created_at  DateTime  @default(now()) @db.Timestamp(0)
+  users       users?    @relation(fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "activity_logs_ibfk_1")
+  switches    switches? @relation(fields: [switch_id], references: [switch_id], onDelete: Restrict, onUpdate: Restrict, map: "activity_logs_ibfk_2")
+
+  @@index([switch_id], map: "switch_id")
+  @@index([user_id], map: "user_id")
+}
+
+model invites {
+  invite_id                               Int                    @id @default(autoincrement())
+  invited_by_user_id                      Int
+  invited_email                           String                 @db.VarChar(100)
+  invite_status                           invites_invite_status? @default(Pending)
+  invited_at                              DateTime               @default(now()) @db.Timestamp(0)
+  accepted_user_id                        Int?
+  updated_at                              DateTime               @default(now()) @db.Timestamp(0)
+  users_invites_invited_by_user_idTousers users                  @relation("invites_invited_by_user_idTousers", fields: [invited_by_user_id], references: [user_id], onUpdate: Restrict, map: "invites_ibfk_1")
+  users_invites_accepted_user_idTousers   users?                 @relation("invites_accepted_user_idTousers", fields: [accepted_user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "invites_ibfk_2")
+
+  @@index([accepted_user_id], map: "accepted_user_id")
+  @@index([invited_by_user_id], map: "invited_by_user_id")
+}
+
+model login_logs {
+  login_log_id Int       @id @default(autoincrement())
+  user_id      Int?
+  login_time   DateTime  @default(now()) @db.Timestamp(0)
+  logout_time  DateTime? @db.Timestamp(0)
+  created_at   DateTime  @default(now()) @db.Timestamp(0)
+  users        users?    @relation(fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "login_logs_ibfk_1")
+
+  @@index([user_id], map: "user_id")
+}
+
+model rooms {
+  room_id       Int             @id @default(autoincrement())
+  room_name     String          @db.VarChar(100)
+  space_id      Int?
+  metadata      String?         @db.LongText
+  active        Boolean?        @default(true)
+  created_at    DateTime        @default(now()) @db.Timestamp(0)
+  updated_at    DateTime        @default(now()) @db.Timestamp(0)
+  spaces        spaces?         @relation(fields: [space_id], references: [space_id], onDelete: Restrict, onUpdate: Restrict, map: "rooms_ibfk_1")
+  switch_boards switch_boards[]
+
+  @@index([space_id], map: "space_id")
+}
+
+model scene_actions {
+  action_id        Int                         @id @default(autoincrement())
+  scene_id         Int
+  target_switch_id Int
+  action_status    scene_actions_action_status
+  active           Boolean?                    @default(true)
+  created_at       DateTime                    @default(now()) @db.Timestamp(0)
+  updated_at       DateTime                    @default(now()) @db.Timestamp(0)
+  scenes           scenes                      @relation(fields: [scene_id], references: [scene_id], onUpdate: Restrict, map: "scene_actions_ibfk_1")
+  switches         switches                    @relation(fields: [target_switch_id], references: [switch_id], onUpdate: Restrict, map: "scene_actions_ibfk_2")
+
+  @@index([scene_id], map: "scene_id")
+  @@index([target_switch_id], map: "target_switch_id")
+}
+
+model scene_logs {
+  scene_log_id         Int      @id @default(autoincrement())
+  scene_id             Int
+  triggered_by_user_id Int?
+  trigger_time         DateTime @default(now()) @db.Timestamp(0)
+  created_at           DateTime @default(now()) @db.Timestamp(0)
+  scenes               scenes   @relation(fields: [scene_id], references: [scene_id], onUpdate: Restrict, map: "scene_logs_ibfk_1")
+  users                users?   @relation(fields: [triggered_by_user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "scene_logs_ibfk_2")
+
+  @@index([scene_id], map: "scene_id")
+  @@index([triggered_by_user_id], map: "triggered_by_user_id")
+}
+
+model scenes {
+  scene_id          Int               @id @default(autoincrement())
+  scene_name        String            @db.VarChar(100)
+  scene_type        scenes_scene_type
+  trigger_switch_id Int
+  trigger_pattern   String            @db.VarChar(20)
+  active            Boolean?          @default(true)
+  created_at        DateTime          @default(now()) @db.Timestamp(0)
+  updated_at        DateTime          @default(now()) @db.Timestamp(0)
+  scene_actions     scene_actions[]
+  scene_logs        scene_logs[]
+  switches          switches          @relation(fields: [trigger_switch_id], references: [switch_id], onUpdate: Restrict, map: "scenes_ibfk_1")
+
+  @@index([trigger_switch_id], map: "trigger_switch_id")
+}
+
+model spaces {
+  space_id          Int                 @id @default(autoincrement())
+  space_name        String              @db.VarChar(100)
+  active            Boolean?            @default(true)
+  created_at        DateTime            @default(now()) @db.Timestamp(0)
+  updated_at        DateTime            @default(now()) @db.Timestamp(0)
+  rooms             rooms[]
+  user_space_access user_space_access[]
+}
+
+model switch_boards {
+  board_id   Int        @id @default(autoincrement())
+  board_name String     @db.VarChar(100)
+  room_id    Int?
+  metadata   String?    @db.LongText
+  active     Boolean?   @default(true)
+  created_at DateTime   @default(now()) @db.Timestamp(0)
+  updated_at DateTime   @default(now()) @db.Timestamp(0)
+  rooms      rooms?     @relation(fields: [room_id], references: [room_id], onDelete: Restrict, onUpdate: Restrict, map: "switch_boards_ibfk_1")
+  switches   switches[]
+
+  @@index([room_id], map: "room_id")
+}
+
+model switch_functions {
+  function_id Int       @id @default(autoincrement())
+  switch_id   Int?
+  action_on   String?   @db.VarChar(255)
+  action_off  String?   @db.VarChar(255)
+  active      Boolean?  @default(true)
+  created_at  DateTime  @default(now()) @db.Timestamp(0)
+  updated_at  DateTime  @default(now()) @db.Timestamp(0)
+  switches    switches? @relation(fields: [switch_id], references: [switch_id], onDelete: Restrict, onUpdate: Restrict, map: "switch_functions_ibfk_1")
+
+  @@index([switch_id], map: "switch_id")
+}
+
+model switch_types {
+  type_id    Int        @id @default(autoincrement())
+  type_name  String     @db.VarChar(50)
+  active     Boolean?   @default(true)
+  created_at DateTime   @default(now()) @db.Timestamp(0)
+  updated_at DateTime   @default(now()) @db.Timestamp(0)
+  switches   switches[]
+}
+
+model switches {
+  switch_id            Int                    @id @default(autoincrement())
+  switch_name          String                 @db.VarChar(100)
+  board_id             Int?
+  type_id              Int?
+  current_status       Boolean?               @default(false)
+  metadata             String?                @db.LongText
+  active               Boolean?               @default(true)
+  created_at           DateTime               @default(now()) @db.Timestamp(0)
+  updated_at           DateTime               @default(now()) @db.Timestamp(0)
+  activity_logs        activity_logs[]
+  beacon_scene_actions beacon_scene_actions[]
+  beacon_scenes        beacon_scenes[]
+  scene_actions        scene_actions[]
+  scenes               scenes[]
+  switch_functions     switch_functions[]
+  switch_boards        switch_boards?         @relation(fields: [board_id], references: [board_id], onDelete: Restrict, onUpdate: Restrict, map: "switches_ibfk_1")
+  switch_types         switch_types?          @relation(fields: [type_id], references: [type_id], onDelete: Restrict, onUpdate: Restrict, map: "switches_ibfk_2")
+
+  @@index([board_id], map: "board_id")
+  @@index([type_id], map: "type_id")
+}
+
+model user_space_access {
+  access_id  Int      @id @default(autoincrement())
+  user_id    Int?
+  space_id   Int?
+  active     Boolean? @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @db.Timestamp(0)
+  users      users?   @relation(fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "user_space_access_ibfk_1")
+  spaces     spaces?  @relation(fields: [space_id], references: [space_id], onDelete: Restrict, onUpdate: Restrict, map: "user_space_access_ibfk_2")
+
+  @@index([space_id], map: "space_id")
+  @@index([user_id], map: "user_id")
+}
+
+model users {
+  user_id                                   Int                 @id @default(autoincrement())
+  user_name                                 String              @db.VarChar(100)
+  email                                     String              @unique(map: "email") @db.VarChar(100)
+  password                                  String              @db.VarChar(255)
+  role                                      String?             @default("Member") @db.VarChar(20)
+  created_at                                DateTime            @default(now()) @db.Timestamp(0)
+  active                                    Boolean?            @default(true)
+  updated_at                                DateTime            @default(now()) @db.Timestamp(0)
+  activity_logs                             activity_logs[]
+  beacon_scene_logs                         beacon_scene_logs[]
+  invites_invites_invited_by_user_idTousers invites[]           @relation("invites_invited_by_user_idTousers")
+  invites_invites_accepted_user_idTousers   invites[]           @relation("invites_accepted_user_idTousers")
+  login_logs                                login_logs[]
+  scene_logs                                scene_logs[]
+  user_space_access                         user_space_access[]
+}
+
+model beacon_list {
+  beacon_id  Int      @id @default(autoincrement())
+  mac_id     String   @unique(map: "mac_id") @db.VarChar(17)
+  active     Boolean? @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model beacon_scene_actions {
+  action_id        Int                                @id @default(autoincrement())
+  beacon_scene_id  Int
+  target_switch_id Int
+  action_status    beacon_scene_actions_action_status
+  active           Boolean?                           @default(true)
+  created_at       DateTime                           @default(now()) @db.Timestamp(0)
+  updated_at       DateTime                           @default(now()) @db.Timestamp(0)
+  beacon_scenes    beacon_scenes                      @relation(fields: [beacon_scene_id], references: [beacon_scene_id], onUpdate: Restrict, map: "beacon_scene_actions_ibfk_1")
+  switches         switches                           @relation(fields: [target_switch_id], references: [switch_id], onUpdate: Restrict, map: "beacon_scene_actions_ibfk_2")
+
+  @@index([beacon_scene_id], map: "beacon_scene_id")
+  @@index([target_switch_id], map: "target_switch_id")
+}
+
+model beacon_scene_logs {
+  log_id               Int           @id @default(autoincrement())
+  beacon_scene_id      Int
+  triggered_by_user_id Int?
+  trigger_time         DateTime      @default(now()) @db.Timestamp(0)
+  created_at           DateTime      @default(now()) @db.Timestamp(0)
+  beacon_scenes        beacon_scenes @relation(fields: [beacon_scene_id], references: [beacon_scene_id], onUpdate: Restrict, map: "beacon_scene_logs_ibfk_1")
+  users                users?        @relation(fields: [triggered_by_user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "beacon_scene_logs_ibfk_2")
+
+  @@index([beacon_scene_id], map: "beacon_scene_id")
+  @@index([triggered_by_user_id], map: "triggered_by_user_id")
+}
+
+model beacon_scenes {
+  beacon_scene_id      Int                           @id @default(autoincrement())
+  beacon_scene_name    String                        @db.VarChar(100)
+  mac_address          String                        @db.VarChar(17)
+  trigger_switch_id    Int
+  trigger_pattern      beacon_scenes_trigger_pattern
+  active               Boolean?                      @default(true)
+  created_at           DateTime                      @default(now()) @db.Timestamp(0)
+  updated_at           DateTime                      @default(now()) @db.Timestamp(0)
+  beacon_scene_actions beacon_scene_actions[]
+  beacon_scene_logs    beacon_scene_logs[]
+  switches             switches                      @relation(fields: [trigger_switch_id], references: [switch_id], onUpdate: Restrict, map: "beacon_scenes_ibfk_1")
+
+  @@index([trigger_switch_id], map: "trigger_switch_id")
+}
+
+model device_list {
+  device_id  Int      @id @default(autoincrement())
+  mac_id     String   @unique(map: "mac_id") @db.VarChar(17)
+  node_id    String   @db.VarChar(100)
+  active     Boolean? @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+enum invites_invite_status {
+  Pending
+  Accepted
+  Rejected
+}
+
+enum scene_actions_action_status {
+  ON
+  OFF
+}
+
+enum scenes_scene_type {
+  SIF
+  Bypass
+}
+
+enum beacon_scene_actions_action_status {
+  ON
+  OFF
+}
+
+enum beacon_scenes_trigger_pattern {
+  tap_1
+  tap_2
+  long_press
+}
