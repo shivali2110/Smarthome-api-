@@ -22,6 +22,7 @@ app.use('/api/devices',       require('./src/routes/deviceRoutes'));
 app.use('/api/beacons',       require('./src/routes/beaconRoutes'));
 app.use('/api/scenes',        require('./src/routes/sceneRoutes'));
 app.use('/api/beacon-scenes', require('./src/routes/beaconSceneRoutes'));
+app.use('/api/upload', require('./src/routes/uploadRoutes'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
