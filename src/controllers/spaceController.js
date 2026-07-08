@@ -4,7 +4,7 @@ const prisma = require('../db');
 // GET /api/spaces/all
 const getAllSpaces = async (req, res) => {
     try {
-        const spaces = await prisma.spaces.findMany({
+        const spaces = await prisma.spaces.findMany({   
             where: { active: true }  // 1 → true
         });
         res.json({ success: true, data: spaces });
