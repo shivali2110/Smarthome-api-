@@ -36,24 +36,32 @@ const uploadFile = async (req, res) => {
 
         // Step 4: Result tracker
         const result = {
-            spaces:        { inserted: 0, skipped: 0 },
-            rooms:         { inserted: 0, skipped: 0 },
-            switch_boards: { inserted: 0, skipped: 0 },
-            switch_types:  { inserted: 0, skipped: 0 },
-            switches:      { inserted: 0, skipped: 0 },
-            devices:       { inserted: 0, skipped: 0 },
-            beacons:       { inserted: 0, skipped: 0 },
-            users:         { inserted: 0, skipped: 0 },
-            invites:       { inserted: 0, skipped: 0 },
+            spaces:              { inserted: 0, skipped: 0 },
+            rooms:               { inserted: 0, skipped: 0 },
+            switch_boards:       { inserted: 0, skipped: 0 },
+            switch_types:        { inserted: 0, skipped: 0 },
+            switches:            { inserted: 0, skipped: 0 },
+            switch_functions:    { inserted: 0, skipped: 0 },
+            devices:             { inserted: 0, skipped: 0 },
+            beacons:             { inserted: 0, skipped: 0 },
+            scenes:              { inserted: 0, skipped: 0 },
+            scene_actions:       { inserted: 0, skipped: 0 },
+            beacon_scenes:       { inserted: 0, skipped: 0 },
+            beacon_scene_actions:{ inserted: 0, skipped: 0 },
+            users:               { inserted: 0, skipped: 0 },
+            invites:             { inserted: 0, skipped: 0 },
         };
 
-        // ── STEP 1: SPACE banao ───────────────────────────────────
+        // Helper map — switch lookup ke liye
+        // { "room_name__switch_name": switch_id }
+        const switchMap = {};
+
+        // ── STEP 1: SPACE ─────────────────────────────────────────
         let spaceId = null;
         if (data.space_name) {
             const existingSpace = await prisma.spaces.findFirst({
                 where: { space_name: data.space_name, active: true }
             });
-
             if (existingSpace) {
                 spaceId = existingSpace.space_id;
                 result.spaces.skipped++;
@@ -66,20 +74,15 @@ const uploadFile = async (req, res) => {
             }
         }
 
-        // ── STEP 2: ROOMS + SWITCH BOARDS + SWITCHES ─────────────
+        // ── STEP 2: ROOMS + BOARDS + SWITCHES + SWITCH FUNCTIONS ──
         if (data.rooms && data.rooms.length > 0 && spaceId) {
             for (const room of data.rooms) {
 
-                // ── Room banao ──
+                // ── Room ──
                 let roomId = null;
                 const existingRoom = await prisma.rooms.findFirst({
-                    where: {
-                        room_name: room.room_name,
-                        space_id: spaceId,
-                        active: true
-                    }
+                    where: { room_name: room.room_name, space_id: spaceId, active: true }
                 });
-
                 if (existingRoom) {
                     roomId = existingRoom.room_id;
                     result.rooms.skipped++;
@@ -88,9 +91,7 @@ const uploadFile = async (req, res) => {
                         data: {
                             room_name: room.room_name,
                             space_id: spaceId,
-                            metadata: room.icon
-                                ? JSON.stringify({ icon: room.icon })
-                                : null,
+                            metadata: room.icon ? JSON.stringify({ icon: room.icon }) : null,
                             active: true
                         }
                     });
@@ -98,63 +99,48 @@ const uploadFile = async (req, res) => {
                     result.rooms.inserted++;
                 }
 
-                // ── Device (node) ko device_list me save karo ──
+                // ── Device ──
                 if (room.mac && room.node_id) {
                     const existingDevice = await prisma.device_list.findFirst({
                         where: { mac_id: room.mac, active: true }
                     });
-
                     if (existingDevice) {
                         result.devices.skipped++;
                     } else {
                         await prisma.device_list.create({
-                            data: {
-                                mac_id: room.mac,
-                                node_id: room.node_id,
-                                active: true
-                            }
+                            data: { mac_id: room.mac, node_id: room.node_id, active: true }
                         });
                         result.devices.inserted++;
                     }
                 }
 
-                // ── Switch Board banao (har room ka ek board) ──
+                // ── Switch Board ──
                 let boardId = null;
                 const boardName = `${room.room_name} Board`;
                 const existingBoard = await prisma.switch_boards.findFirst({
-                    where: {
-                        board_name: boardName,
-                        room_id: roomId,
-                        active: true
-                    }
+                    where: { board_name: boardName, room_id: roomId, active: true }
                 });
-
                 if (existingBoard) {
                     boardId = existingBoard.board_id;
                     result.switch_boards.skipped++;
                 } else {
                     const newBoard = await prisma.switch_boards.create({
-                        data: {
-                            board_name: boardName,
-                            room_id: roomId,
-                            active: true
-                        }
+                        data: { board_name: boardName, room_id: roomId, active: true }
                     });
                     boardId = newBoard.board_id;
                     result.switch_boards.inserted++;
                 }
 
-                // ── Switches banao (room ke andar nested hai) ──
+                // ── Switches + Switch Functions ──
                 if (room.switches && room.switches.length > 0) {
                     for (const sw of room.switches) {
 
-                        // Switch Type check/create karo
+                        // Switch Type
                         let typeId = null;
                         const typeName = sw.input_type || 'bulb';
                         const existingType = await prisma.switch_types.findFirst({
                             where: { type_name: typeName, active: true }
                         });
-
                         if (existingType) {
                             typeId = existingType.type_id;
                             result.switch_types.skipped++;
@@ -166,31 +152,52 @@ const uploadFile = async (req, res) => {
                             result.switch_types.inserted++;
                         }
 
-                        // Switch banao
+                        // Switch
+                        let switchId = null;
                         const existingSwitch = await prisma.switches.findFirst({
-                            where: {
-                                switch_name: sw.switch_name,
-                                board_id: boardId,
-                                active: true
-                            }
+                            where: { switch_name: sw.switch_name, board_id: boardId, active: true }
                         });
-
                         if (existingSwitch) {
+                            switchId = existingSwitch.switch_id;
                             result.switches.skipped++;
                         } else {
-                            await prisma.switches.create({
+                            const newSwitch = await prisma.switches.create({
                                 data: {
                                     switch_name: sw.switch_name,
                                     board_id: boardId,
                                     type_id: typeId,
                                     current_status: sw.device_value === '1',
-                                    metadata: sw.input_icon
-                                        ? JSON.stringify({ icon: sw.input_icon })
-                                        : null,
+                                    metadata: sw.input_icon ? JSON.stringify({ icon: sw.input_icon }) : null,
                                     active: true
                                 }
                             });
+                            switchId = newSwitch.switch_id;
                             result.switches.inserted++;
+                        }
+
+                        // Switch Map me save karo — scene actions ke liye baad me use hoga
+                        // Key: "room_name__switch_name"
+                        const mapKey = `${room.room_name}__${sw.switch_name}`;
+                        switchMap[mapKey] = switchId;
+
+                        // Switch Function (action_on / action_off)
+                        if (sw.action_on || sw.action_off) {
+                            const existingFn = await prisma.switch_functions.findFirst({
+                                where: { switch_id: switchId, active: true }
+                            });
+                            if (existingFn) {
+                                result.switch_functions.skipped++;
+                            } else {
+                                await prisma.switch_functions.create({
+                                    data: {
+                                        switch_id: switchId,
+                                        action_on: sw.action_on || null,
+                                        action_off: sw.action_off || null,
+                                        active: true
+                                    }
+                                });
+                                result.switch_functions.inserted++;
+                            }
                         }
                     }
                 }
@@ -203,28 +210,168 @@ const uploadFile = async (req, res) => {
                 const existingBeacon = await prisma.beacon_list.findFirst({
                     where: { mac_id: beacon.mac_address, active: true }
                 });
-
                 if (existingBeacon) {
                     result.beacons.skipped++;
                 } else {
                     await prisma.beacon_list.create({
-                        data: {
-                            mac_id: beacon.mac_address,
-                            active: true
-                        }
+                        data: { mac_id: beacon.mac_address, active: true }
                     });
                     result.beacons.inserted++;
                 }
             }
         }
 
-        // ── STEP 4: USERS ─────────────────────────────────────────
+        // ── STEP 4: SCENES + SCENE ACTIONS ───────────────────────
+        if (data.scenes && data.scenes.length > 0) {
+            for (const scene of data.scenes) {
+
+                // Trigger switch ID dhundo switchMap se
+                const triggerKey = `${scene.trigger_room}__${scene.trigger_switch_name}`;
+                const triggerSwitchId = switchMap[triggerKey];
+
+                if (!triggerSwitchId) {
+                    // Trigger switch nahi mila — skip
+                    result.scenes.skipped++;
+                    continue;
+                }
+
+                // Scene banao
+                let sceneId = null;
+                const existingScene = await prisma.scenes.findFirst({
+                    where: {
+                        scene_name: scene.scene_name,
+                        trigger_switch_id: triggerSwitchId,
+                        active: true
+                    }
+                });
+                if (existingScene) {
+                    sceneId = existingScene.scene_id;
+                    result.scenes.skipped++;
+                } else {
+                    const newScene = await prisma.scenes.create({
+                        data: {
+                            scene_name: scene.scene_name,
+                            scene_type: scene.scene_type,
+                            trigger_switch_id: triggerSwitchId,
+                            trigger_pattern: scene.trigger_pattern,
+                            active: true
+                        }
+                    });
+                    sceneId = newScene.scene_id;
+                    result.scenes.inserted++;
+                }
+
+                // Scene Actions banao
+                if (scene.actions && scene.actions.length > 0) {
+                    for (const action of scene.actions) {
+                        const actionKey = `${action.target_room}__${action.target_switch_name}`;
+                        const targetSwitchId = switchMap[actionKey];
+
+                        if (!targetSwitchId) continue;
+
+                        const existingAction = await prisma.scene_actions.findFirst({
+                            where: {
+                                scene_id: sceneId,
+                                target_switch_id: targetSwitchId,
+                                active: true
+                            }
+                        });
+                        if (existingAction) {
+                            result.scene_actions.skipped++;
+                        } else {
+                            await prisma.scene_actions.create({
+                                data: {
+                                    scene_id: sceneId,
+                                    target_switch_id: targetSwitchId,
+                                    action_status: action.action_status,
+                                    active: true
+                                }
+                            });
+                            result.scene_actions.inserted++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── STEP 5: BEACON SCENES + BEACON SCENE ACTIONS ─────────
+        if (data.beacon_scenes && data.beacon_scenes.length > 0) {
+            for (const bs of data.beacon_scenes) {
+
+                // Trigger switch ID dhundo
+                const triggerKey = `${bs.trigger_room}__${bs.trigger_switch_name}`;
+                const triggerSwitchId = switchMap[triggerKey];
+
+                if (!triggerSwitchId) {
+                    result.beacon_scenes.skipped++;
+                    continue;
+                }
+
+                // Beacon Scene banao
+                let beaconSceneId = null;
+                const existingBs = await prisma.beacon_scenes.findFirst({
+                    where: {
+                        beacon_scene_name: bs.beacon_scene_name,
+                        mac_address: bs.mac_address,
+                        active: true
+                    }
+                });
+                if (existingBs) {
+                    beaconSceneId = existingBs.beacon_scene_id;
+                    result.beacon_scenes.skipped++;
+                } else {
+                    const newBs = await prisma.beacon_scenes.create({
+                        data: {
+                            beacon_scene_name: bs.beacon_scene_name,
+                            mac_address: bs.mac_address,
+                            trigger_switch_id: triggerSwitchId,
+                            trigger_pattern: bs.trigger_pattern,
+                            active: true
+                        }
+                    });
+                    beaconSceneId = newBs.beacon_scene_id;
+                    result.beacon_scenes.inserted++;
+                }
+
+                // Beacon Scene Actions banao
+                if (bs.actions && bs.actions.length > 0) {
+                    for (const action of bs.actions) {
+                        const actionKey = `${action.target_room}__${action.target_switch_name}`;
+                        const targetSwitchId = switchMap[actionKey];
+
+                        if (!targetSwitchId) continue;
+
+                        const existingAction = await prisma.beacon_scene_actions.findFirst({
+                            where: {
+                                beacon_scene_id: beaconSceneId,
+                                target_switch_id: targetSwitchId,
+                                active: true
+                            }
+                        });
+                        if (existingAction) {
+                            result.beacon_scene_actions.skipped++;
+                        } else {
+                            await prisma.beacon_scene_actions.create({
+                                data: {
+                                    beacon_scene_id: beaconSceneId,
+                                    target_switch_id: targetSwitchId,
+                                    action_status: action.action_status,
+                                    active: true
+                                }
+                            });
+                            result.beacon_scene_actions.inserted++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── STEP 6: USERS ─────────────────────────────────────────
         if (data.users && data.users.length > 0) {
             for (const user of data.users) {
                 const existingUser = await prisma.users.findFirst({
                     where: { email: user.email, active: true }
                 });
-
                 if (existingUser) {
                     result.users.skipped++;
                 } else {
@@ -242,7 +389,7 @@ const uploadFile = async (req, res) => {
             }
         }
 
-        // ── STEP 5: INVITE EMAILS ─────────────────────────────────
+        // ── STEP 7: INVITE EMAILS ─────────────────────────────────
         if (data.invite_email && data.invite_email.length > 0) {
             const adminUser = await prisma.users.findFirst({
                 where: { role: 'Admin', active: true }
@@ -252,7 +399,6 @@ const uploadFile = async (req, res) => {
                 const existingInvite = await prisma.invites.findFirst({
                     where: { invited_email: email }
                 });
-
                 if (existingInvite) {
                     result.invites.skipped++;
                 } else {
@@ -268,7 +414,7 @@ const uploadFile = async (req, res) => {
             }
         }
 
-        // Step 6: Response bhejo
+        // Step 8: Response bhejo
         res.status(200).json({
             success: true,
             message: 'File uploaded and processed successfully',
