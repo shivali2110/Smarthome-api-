@@ -5,10 +5,12 @@ const {
     getSpaceById,
     createSpace,
     updateSpace,
-    deleteSpace
+    deleteSpace,
+      getSpaceFullData   
 } = require('../controllers/spaceController');
 
 router.get('/all', getAllSpaces);
+router.get('/:id/full', getSpaceFullData); 
 router.get('/:id', getSpaceById);
 router.post('/', createSpace);
 router.put('/update/:id', updateSpace);
