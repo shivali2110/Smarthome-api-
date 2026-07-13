@@ -11,6 +11,7 @@ app.get('/', (req, res) => {
 });
 
 // Existing routes
+app.use('/api/auth',   require('./src/routes/authRoutes'));
 app.use('/api/spaces',          require('./src/routes/spaceRoutes'));
 app.use('/api/rooms',           require('./src/routes/roomRoutes'));
 app.use('/api/switch-boards',   require('./src/routes/switchBoardRoutes'));

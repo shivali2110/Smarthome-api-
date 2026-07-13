@@ -258,4 +258,68 @@ const getSpaceFullData = async (req, res) => {
     }
 };
 
-module.exports = { getAllSpaces, getSpaceById, createSpace, updateSpace, deleteSpace ,  getSpaceFullData  };
+
+const createSpaceWithAccess = async (req, res) => {
+    try {
+        const { space_name } = req.body;
+        const user_id = req.user.user_id; // JWT se aaya
+
+        if (!space_name) {
+            return res.status(400).json({
+                success: false,
+                message: 'space_name is required'
+            });
+        }
+
+        // Step 1: Space banao
+        const newSpace = await prisma.spaces.create({
+            data: { space_name, active: true }
+        });
+
+        // Step 2: User ko space assign karo (automatically)
+        await prisma.user_space_access.create({
+            data: {
+                user_id,
+                space_id: newSpace.space_id,
+                active: true
+            }
+        });
+
+        // Step 3: User ke saare spaces fetch karo
+        const allUserSpaces = await prisma.user_space_access.findMany({
+            where: { user_id, active: true }
+        });
+
+        const space_ids = allUserSpaces.map(a => a.space_id);
+
+        // Step 4: Naya token generate karo space_ids ke sath
+        const jwt = require('jsonwebtoken');
+        const payload = { user_id };
+
+        if (space_ids.length === 1) {
+            payload.space_id = space_ids[0];
+        } else {
+            payload.space_ids = space_ids;
+        }
+
+        const newToken = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Space created and assigned successfully',
+            token: newToken, // Updated token
+            data: {
+                space_id: newSpace.space_id,
+                space_name: newSpace.space_name,
+                all_space_ids: space_ids
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+module.exports = { getAllSpaces, getSpaceById, createSpace,  updateSpace, deleteSpace ,  getSpaceFullData , createSpaceWithAccess, };
