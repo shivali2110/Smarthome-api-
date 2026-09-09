@@ -46,16 +46,34 @@ const getRoomById = async (req, res) => {
 };
 
 
+// POST /api/rooms — Create a room (also save user_id)
 const createRoom = async (req, res) => {
     try {
         const { room_name, space_id } = req.body;
+        const user_id = req.user?.user_id || null; // From JWT (optional)
+
         if (!room_name || !space_id) {
-            return res.status(400).json({ success: false, message: 'room_name and space_id are required' });
+            return res.status(400).json({
+                success: false,
+                message: 'room_name and space_id are required'
+            });
         }
+
         const newRoom = await prisma.rooms.create({
-            data: { room_name, space_id: parseInt(space_id), active: true }
+            data: {
+                room_name,
+                space_id: parseInt(space_id),
+                user_id,
+                active: true
+            }
         });
-        res.status(201).json({ success: true, message: 'Room created successfully', data: newRoom });
+
+        res.status(201).json({
+            success: true,
+            message: 'Room created successfully',
+            data: newRoom
+        });
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

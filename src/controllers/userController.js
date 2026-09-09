@@ -7,7 +7,7 @@ const getAllUsers = async (req, res) => {
             select: {
                 user_id: true, user_name: true, email: true,
                 role: true, created_at: true
-                // password select nahi kiya security ke liye
+                // Password field intentionally not selected for security reasons
             }
         });
         res.json({ success: true, data: users });
@@ -38,7 +38,7 @@ const createUser = async (req, res) => {
         if (!user_name || !email || !password) {
             return res.status(400).json({ success: false, message: 'user_name, email and password are required' });
         }
-        // Check email already exist karta hai ya nahi
+        // Check whether the email already exists
         const existingUser = await prisma.users.findFirst({ where: { email } });
         if (existingUser) {
             return res.status(400).json({ success: false, message: 'Email already exists' });

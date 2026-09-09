@@ -1,6 +1,6 @@
 const prisma = require('../db');
 
-// GET - Saare active scenes
+// GET - All active scenes
 const getAllScenes = async (req, res) => {
     try {
         const scenes = await prisma.scenes.findMany({
@@ -13,7 +13,7 @@ const getAllScenes = async (req, res) => {
     }
 };
 
-// GET - Ek scene by ID
+// GET - A scene by ID
 const getSceneById = async (req, res) => {
     try {
         const scene = await prisma.scenes.findFirst({
@@ -30,7 +30,7 @@ const getSceneById = async (req, res) => {
     }
 };
 
-// POST - Naya scene banao
+// POST - Create a new scene
 const createScene = async (req, res) => {
     try {
         const { scene_name, scene_type, trigger_switch_id, trigger_pattern } = req.body;
@@ -57,7 +57,7 @@ const createScene = async (req, res) => {
     }
 };
 
-// PUT - Scene update karo
+// PUT - Update the scene
 const updateScene = async (req, res) => {
     try {
         const { scene_name, trigger_pattern } = req.body;

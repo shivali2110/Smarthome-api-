@@ -2,7 +2,7 @@ const prisma = require('../db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// ── Token generate karne ka helper ───────────────────────────────
+// ── Token generation helper ─────────────────────────────────────
 const generateToken = (user_id, space_ids = []) => {
     const payload = { user_id };
 
@@ -29,7 +29,7 @@ const register = async (req, res) => {
             });
         }
 
-        // Check email already exist karta hai ya nahi
+        // Check whether the email already exists
         const existingUser = await prisma.users.findFirst({
             where: { email }
         });
@@ -41,10 +41,10 @@ const register = async (req, res) => {
             });
         }
 
-        // Password hash karo
+        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // User banao
+        // Create the user
         const newUser = await prisma.users.create({
             data: {
                 user_name,
@@ -55,12 +55,12 @@ const register = async (req, res) => {
             }
         });
 
-        // Login log banao
+        // Create a login log
         await prisma.login_logs.create({
             data: { user_id: newUser.user_id }
         });
 
-        // Token generate karo (abhi koi space nahi)
+        // Generate a token (no space yet)
         const token = generateToken(newUser.user_id);
 
         res.status(201).json({
@@ -92,7 +92,7 @@ const login = async (req, res) => {
             });
         }
 
-        // User dhundo
+        // Find the user
         const user = await prisma.users.findFirst({
             where: { email, active: true }
         });
@@ -104,7 +104,7 @@ const login = async (req, res) => {
             });
         }
 
-        // Password check karo
+        // Check the password
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
         if (!isPasswordValid) {
@@ -114,7 +114,7 @@ const login = async (req, res) => {
             });
         }
 
-        // User ke existing spaces fetch karo
+        // Fetch the user's existing spaces
         const userSpaces = await prisma.user_space_access.findMany({
             where: { user_id: user.user_id, active: true },
             include: { spaces: true }
@@ -124,10 +124,10 @@ const login = async (req, res) => {
             .filter(a => a.spaces?.active)
             .map(a => a.space_id);
 
-        // Token generate karo (spaces ke sath)
+        // Generate a token (with spaces)
         const token = generateToken(user.user_id, space_ids);
 
-        // Login log banao
+        // Create a login log
         await prisma.login_logs.create({
             data: { user_id: user.user_id }
         });
@@ -156,7 +156,7 @@ const login = async (req, res) => {
 // ── LOGOUT ────────────────────────────────────────────────────────
 const logout = async (req, res) => {
     try {
-        // Login log me logout_time update karo
+        // Update logout_time in the login log
         const lastLog = await prisma.login_logs.findFirst({
             where: {
                 user_id: req.user.user_id,
@@ -203,7 +203,7 @@ const getProfile = async (req, res) => {
             });
         }
 
-        // User ke spaces fetch karo
+        // Fetch the user's spaces
         const userSpaces = await prisma.user_space_access.findMany({
             where: { user_id: req.user.user_id, active: true },
             include: { spaces: true }

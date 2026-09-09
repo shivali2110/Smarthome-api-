@@ -1,6 +1,6 @@
 const prisma = require('../db');
 
-// GET - Saare active beacon scenes
+// GET - All active beacon scenes
 const getAllBeaconScenes = async (req, res) => {
     try {
         const beaconScenes = await prisma.beacon_scenes.findMany({
@@ -13,7 +13,7 @@ const getAllBeaconScenes = async (req, res) => {
     }
 };
 
-// GET - Ek beacon scene by ID
+// GET - A beacon scene by ID
 const getBeaconSceneById = async (req, res) => {
     try {
         const beaconScene = await prisma.beacon_scenes.findFirst({
@@ -30,7 +30,7 @@ const getBeaconSceneById = async (req, res) => {
     }
 };
 
-// POST - Naya beacon scene banao
+// POST - Create a new beacon scene
 const createBeaconScene = async (req, res) => {
     try {
         const { beacon_scene_name, mac_address, trigger_switch_id, trigger_pattern } = req.body;
@@ -57,7 +57,7 @@ const createBeaconScene = async (req, res) => {
     }
 };
 
-// PUT - Beacon scene update karo
+// PUT - Update the beacon scene
 const updateBeaconScene = async (req, res) => {
     try {
         const { beacon_scene_name, mac_address, trigger_pattern } = req.body;

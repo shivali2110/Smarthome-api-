@@ -5,7 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 
 router.post('/register', register);
 router.post('/login', login);
-router.post('/logout', authMiddleware, logout);      // Token chahiye
-router.get('/profile', authMiddleware, getProfile);  // Token chahiye
+router.post('/logout', authMiddleware, logout);      // Token required
+router.get('/profile', authMiddleware, getProfile);  // Token required
 
 module.exports = router;

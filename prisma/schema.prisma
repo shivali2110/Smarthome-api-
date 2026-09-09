@@ -55,10 +55,14 @@ model rooms {
   active        Boolean?        @default(true)
   created_at    DateTime        @default(now()) @db.Timestamp(0)
   updated_at    DateTime        @default(now()) @db.Timestamp(0)
+  user_id       Int?
+  room_boards   room_boards[]
   spaces        spaces?         @relation(fields: [space_id], references: [space_id], onDelete: Restrict, onUpdate: Restrict, map: "rooms_ibfk_1")
+  users         users?          @relation(fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "rooms_ibfk_2")
   switch_boards switch_boards[]
 
   @@index([space_id], map: "space_id")
+  @@index([user_id], map: "user_id")
 }
 
 model scene_actions {
@@ -112,21 +116,31 @@ model spaces {
   created_at        DateTime            @default(now()) @db.Timestamp(0)
   updated_at        DateTime            @default(now()) @db.Timestamp(0)
   rooms             rooms[]
+  switch_boards     switch_boards[]
   user_space_access user_space_access[]
+  device_list       device_list[]
 }
 
 model switch_boards {
-  board_id   Int        @id @default(autoincrement())
-  board_name String     @db.VarChar(100)
-  room_id    Int?
-  metadata   String?    @db.LongText
-  active     Boolean?   @default(true)
-  created_at DateTime   @default(now()) @db.Timestamp(0)
-  updated_at DateTime   @default(now()) @db.Timestamp(0)
-  rooms      rooms?     @relation(fields: [room_id], references: [room_id], onDelete: Restrict, onUpdate: Restrict, map: "switch_boards_ibfk_1")
-  switches   switches[]
+  board_id    Int           @id @default(autoincrement())
+  board_name  String        @db.VarChar(100)
+  room_id     Int?
+  metadata    String?       @db.LongText
+  active      Boolean?      @default(true)
+  created_at  DateTime      @default(now()) @db.Timestamp(0)
+  updated_at  DateTime      @default(now()) @db.Timestamp(0)
+  user_id     Int?
+  space_id    Int?
+  board_type  String?       @db.VarChar(50)
+  room_boards room_boards[]
+  rooms       rooms?        @relation(fields: [room_id], references: [room_id], onDelete: Restrict, onUpdate: Restrict, map: "switch_boards_ibfk_1")
+  users       users?        @relation(fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "switch_boards_ibfk_2")
+  spaces      spaces?       @relation(fields: [space_id], references: [space_id], onDelete: Restrict, onUpdate: Restrict, map: "switch_boards_ibfk_3")
+  switches    switches[]
 
   @@index([room_id], map: "room_id")
+  @@index([space_id], map: "space_id")
+  @@index([user_id], map: "user_id")
 }
 
 model switch_functions {
@@ -202,7 +216,9 @@ model users {
   invites_invites_invited_by_user_idTousers invites[]           @relation("invites_invited_by_user_idTousers")
   invites_invites_accepted_user_idTousers   invites[]           @relation("invites_accepted_user_idTousers")
   login_logs                                login_logs[]
+  rooms                                     rooms[]
   scene_logs                                scene_logs[]
+  switch_boards                             switch_boards[]
   user_space_access                         user_space_access[]
 }
 
@@ -258,13 +274,37 @@ model beacon_scenes {
   @@index([trigger_switch_id], map: "trigger_switch_id")
 }
 
+// UPDATED: added space_id, root_node and status for WebSocket device routing
 model device_list {
   device_id  Int      @id @default(autoincrement())
   mac_id     String   @unique(map: "mac_id") @db.VarChar(17)
   node_id    String   @db.VarChar(100)
+  space_id   Int?
+  // root_node: the node_id of the device currently acting as the WebSocket root
+  // for this space (mirrors Jay's root_node column). Null until a device connects.
+  root_node  String?  @db.VarChar(100)
+  // status: 0 = online (connected), 1 = offline (disconnected). Matches Jay's convention.
+  status     Int?     @default(1)
   active     Boolean? @default(true)
   created_at DateTime @default(now()) @db.Timestamp(0)
   updated_at DateTime @default(now()) @db.Timestamp(0)
+  spaces     spaces?  @relation(fields: [space_id], references: [space_id], onDelete: Restrict, onUpdate: Restrict, map: "device_list_ibfk_1")
+
+  @@index([space_id], map: "space_id")
+  @@index([node_id], map: "node_id")
+}
+
+model room_boards {
+  id            Int           @id @default(autoincrement())
+  room_id       Int
+  board_id      Int
+  assigned_at   DateTime      @default(now()) @db.Timestamp(0)
+  active        Boolean?      @default(true)
+  rooms         rooms         @relation(fields: [room_id], references: [room_id], onUpdate: Restrict, map: "room_boards_ibfk_1")
+  switch_boards switch_boards @relation(fields: [board_id], references: [board_id], onUpdate: Restrict, map: "room_boards_ibfk_2")
+
+  @@index([board_id], map: "board_id")
+  @@index([room_id], map: "room_id")
 }
 
 enum invites_invite_status {
